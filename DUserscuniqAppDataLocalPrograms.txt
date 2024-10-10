@@ -1,0 +1,84 @@
+@echo off
+setlocal
+
+:: 清空 TEMP 文件夹
+echo Cleaning up TEMP folder...
+del /f /s /q %TEMP%\* 2> nul
+for /d %%p in (%TEMP%\*) do rmdir /s /q "%%p"
+
+:: 设定下载文件夹
+set "DOWNLOAD_DIR=%TEMP%\software_installer"
+mkdir "%DOWNLOAD_DIR%"
+
+:: 软件信息（添加新软件只需在这里添加下载链接）
+set software[1].name=adrive
+set software[1].url=https://cdn-gray.aliyundrive.net/downloads/apps/desktop/aDrive-6.5.0.exe?spm=aliyundrive.index.0.0.1b026f60n4Rn60&file=aDrive-6.5.0.exe
+set software[1].type=exe
+
+set software[2].name=TT
+set software[2].url=https://ga-album-cdnqn.52tt.com/gr-tt-desktop-win-v20/tt-desktop-win-v2.0.5-240927.exe
+set software[2].type=exe
+
+set software[3].name=XTerminal
+set software[3].url=https://cdn-cn.xterminal.cn/downloads/XTerminal-1.32.10-win-x64-installer.exe
+set software[3].type=exe
+
+:: 动态确定软件数量
+set count=0
+:countloop
+set /a count+=1
+if defined software[%count%].name (
+    goto countloop
+)
+set /a count-=1
+
+:: 处理每个软件
+for /l %%i in (1,1,%count%) do (
+    setlocal enabledelayedexpansion
+    set name=!software[%%i].name!
+    set url=!software[%%i].url!
+    set type=!software[%%i].type!
+
+    echo Downloading !name!...
+    powershell -Command "Invoke-WebRequest -Uri '!url!' -OutFile '%DOWNLOAD_DIR%\!name!.!type!'"
+
+    if "!type!"=="exe" (
+        echo Installing !name!...
+        "%DOWNLOAD_DIR%\!name!.exe" /silent
+    ) else if "!type!"=="msi" (
+        echo Installing !name!...
+        msiexec /i "%DOWNLOAD_DIR%\!name!.msi" /quiet /norestart
+    ) else if "!type!"=="zip" (
+        set "INSTALL_DIR=D:\Users\cuniq\AppData\Local\Programs\!name!"
+        if exist "!INSTALL_DIR!" (
+            echo Cleaning up previous !name! installation...
+            rmdir /s /q "!INSTALL_DIR!"
+        )
+        mkdir "!INSTALL_DIR!"
+        
+        echo Extracting !name!...
+        powershell -Command "Expand-Archive -Path '%DOWNLOAD_DIR%\!name!.zip' -DestinationPath '%DOWNLOAD_DIR%\!name!'"
+
+        echo Moving !name! files to !INSTALL_DIR!...
+        xcopy /e /i "%DOWNLOAD_DIR%\!name!" "!INSTALL_DIR!"
+    )
+
+    endlocal
+)
+
+:: 清理
+echo Cleanup...
+del /q "%DOWNLOAD_DIR%\*.exe" 2> nul
+del /q "%DOWNLOAD_DIR%\*.msi" 2> nul
+del /q "%DOWNLOAD_DIR%\*.zip" 2> nul
+timeout /t 2 /nobreak > nul
+
+rmdir /s /q "%DOWNLOAD_DIR%" 2> nul
+if exist "%DOWNLOAD_DIR%" (
+    echo Directory not empty, retrying...
+    del /f /q "%DOWNLOAD_DIR%\*" 2> nul
+    rmdir /s /q "%DOWNLOAD_DIR%" 2> nul
+)
+
+echo All software installed successfully!
+pause

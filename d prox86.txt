@@ -1,0 +1,104 @@
+@echo off
+setlocal
+
+:: 清空 TEMP 文件夹
+echo Cleaning up TEMP folder...
+del /f /s /q %TEMP%\* 2> nul
+for /d %%p in (%TEMP%\*) do rmdir /s /q "%%p"
+
+:: 设定下载文件夹
+set "DOWNLOAD_DIR=%TEMP%\software_installer"
+mkdir "%DOWNLOAD_DIR%"
+
+:: 软件信息（添加新软件只需在这里添加下载链接）
+set software[1].name=BestTrace
+set software[1].url=https://cdn.ipip.net/17mon/besttrace.exe
+set software[1].type=exe
+
+set software[2].name=douyin
+set software[2].url=https://www.douyin.com/download/pc/obj/douyin-pc-client/7044145585217083655/releases/12115223/4.6.0/win32-ia32/douyin-downloader-v4.6.0-win32-ia32-douyincold.exe
+set software[2].type=exe
+
+set software[3].name=Epic Games
+set software[3].url=https://epicgames-download1.akamaized.net/Builds/UnrealEngineLauncher/Installers/Win32/EpicInstaller-15.17.1.msi?launcherfilename=EpicInstaller-15.17.1.msi
+set software[3].type=exe
+
+set software[4].name=AIDA64 Extreme
+set software[4].url=https://download2.aida64.com/aida64extreme735.exe
+set software[4].type=exe
+
+set software[5].name=perfectworldarena
+set software[5].url=https://client.wmpvp.com/download/perfectworldarena_win32_v1.0.24101011.exe
+set software[5].type=exe
+
+set software[6].name=Rapoo
+set software[6].url=https://rpd.rapoo.cn/download/RapooGameDevDriver_Setup_1.6.14_20240910.exe
+set software[6].type=exe
+
+set software[7].name=SogouInput
+set software[7].url=https://ime-sec.gtimg.com/202410101702/898aaa70e9f78d7e848d478498f0286c/pc/sogou_pinyin_guanwang_14.9b.exe
+set software[7].type=exe
+
+set software[8].name=steam
+set software[8].url=https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe
+set software[8].type=exe
+
+:: 动态确定软件数量
+set count=0
+:countloop
+set /a count+=1
+if defined software[%count%].name (
+    goto countloop
+)
+set /a count-=1
+
+:: 处理每个软件
+for /l %%i in (1,1,%count%) do (
+    setlocal enabledelayedexpansion
+    set name=!software[%%i].name!
+    set url=!software[%%i].url!
+    set type=!software[%%i].type!
+
+    echo Downloading !name!...
+    powershell -Command "Invoke-WebRequest -Uri '!url!' -OutFile '%DOWNLOAD_DIR%\!name!.!type!'"
+
+    if "!type!"=="exe" (
+        echo Installing !name!...
+        "%DOWNLOAD_DIR%\!name!.exe" /silent
+    ) else if "!type!"=="msi" (
+        echo Installing !name!...
+        msiexec /i "%DOWNLOAD_DIR%\!name!.msi" /quiet /norestart
+    ) else if "!type!"=="zip" (
+        set "INSTALL_DIR=D:\Program Files (x86)\!name!"
+        if exist "!INSTALL_DIR!" (
+            echo Cleaning up previous !name! installation...
+            rmdir /s /q "!INSTALL_DIR!"
+        )
+        mkdir "!INSTALL_DIR!"
+        
+        echo Extracting !name!...
+        powershell -Command "Expand-Archive -Path '%DOWNLOAD_DIR%\!name!.zip' -DestinationPath '%DOWNLOAD_DIR%\!name!'"
+
+        echo Moving !name! files to !INSTALL_DIR!...
+        xcopy /e /i "%DOWNLOAD_DIR%\!name!" "!INSTALL_DIR!"
+    )
+
+    endlocal
+)
+
+:: 清理
+echo Cleanup...
+del /q "%DOWNLOAD_DIR%\*.exe" 2> nul
+del /q "%DOWNLOAD_DIR%\*.msi" 2> nul
+del /q "%DOWNLOAD_DIR%\*.zip" 2> nul
+timeout /t 2 /nobreak > nul
+
+rmdir /s /q "%DOWNLOAD_DIR%" 2> nul
+if exist "%DOWNLOAD_DIR%" (
+    echo Directory not empty, retrying...
+    del /f /q "%DOWNLOAD_DIR%\*" 2> nul
+    rmdir /s /q "%DOWNLOAD_DIR%" 2> nul
+)
+
+echo All software installed successfully!
+pause

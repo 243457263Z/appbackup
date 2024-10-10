@@ -1,0 +1,128 @@
+@echo off
+setlocal
+
+:: 清空 TEMP 文件夹
+echo Cleaning up TEMP folder...
+del /f /s /q %TEMP%\* 2> nul
+for /d %%p in (%TEMP%\*) do rmdir /s /q "%%p"
+
+:: 设定下载文件夹
+set "DOWNLOAD_DIR=%TEMP%\software_installer"
+mkdir "%DOWNLOAD_DIR%"
+
+:: 软件信息（添加新软件只需在这里添加下载链接）
+set software[1].name=Bandizip
+set software[1].url=https://dl.bandisoft.com/bandizip.std/BANDIZIP-SETUP-STD-X64.EXE?13
+set software[1].type=exe
+
+set software[2].name=bilibili
+set software[2].url=https://dl.hdslb.com/mobile/fixed/bili_win/bili_win-install.exe?v=1.14.2-1&spm_id_from=333.47.b_646f776e6c6f61642d6c696e6b.9
+set software[2].type=exe
+
+set software[3].name=bililive
+set software[3].url=https://dl.hdslb.com/bili/bililive/win/Livehime-Win-beta-6.7.0.7562-x64.exe
+set software[3].type=exe
+
+set software[4].name=Clash Verge
+set software[4].url=https://objects.githubusercontent.com/github-production-release-asset-2e65be/721767116/d49dff89-ec44-4a6d-8d5c-a0980d09ba3b?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=releaseassetproduction%2F20241010%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241010T083721Z&X-Amz-Expires=300&X-Amz-Signature=e8037b629a31a8fbb6b2263752ece4e8f69e428bd596990a762f04e039eb7753&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3DClash.Verge_1.7.7_x64-setup.exe&response-content-type=application%2Foctet-stream
+set software[4].type=exe
+
+set software[5].name=potplayer
+set software[5].url=https://t1.daumcdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetup64.exe
+set software[5].type=exe
+
+set software[6].name=NeteaseMusic
+set software[6].url=https://d1.music.126.net/dmusic/NeteaseCloudMusic_Music_official_3.0.4.203152_64.exe
+set software[6].type=exe
+
+set software[7].name=Gameviewer
+set software[7].url=https://a56.gdl.netease.com/GameViewer_Setup_2.2.2.2400_0930201549_gwqd.exe
+set software[7].type=exe
+
+set software[8].name=mumu
+set software[8].url=https://a11.gdl.netease.com/MuMuInstaller_3.1.12.0_nochannel-mumu12_zh-Hans_1727595601.exe
+set software[8].type=exe
+
+set software[9].name=Rustdesk
+set software[9].url=https://github.com/rustdesk/rustdesk/releases/download/1.3.1/rustdesk-1.3.1-x86_64.msi
+set software[9].type=msi
+
+set software[10].name=Androws
+set software[10].url=https://down.pc.yyb.qq.com/packing/359bd574603267e5065955d43b090ec8/pc_yyb_2702800336_installer.exe
+set software[10].type=exe
+
+set software[11].name=QQ
+set software[11].url=https://dldir1.qq.com/qqfile/qq/QQNT/Windows/QQ_9.9.15_241009_x64_01.exe
+set software[11].type=exe
+
+set software[12].name=WeChat
+set software[12].url=https://dldir1v6.qq.com/weixin/Windows/WeChatSetup.exe
+set software[12].type=exe
+
+set software[13].name=Wemeet
+set software[13].url=https://updatecdn.meeting.qq.com/cos/7237925c3676723b2915522630adfe48/TencentMeeting_0300000000_3.29.10.471_x86_64.publish.officialwebsite.exe
+set software[13].type=exe
+
+set software[14].name=Todesk
+set software[14].url=https://dl.todesk.com/windows/ToDesk_Setup.exe
+set software[14].type=exe
+
+:: 动态确定软件数量
+set count=0
+:countloop
+set /a count+=1
+if defined software[%count%].name (
+    goto countloop
+)
+set /a count-=1
+
+:: 处理每个软件
+for /l %%i in (1,1,%count%) do (
+    setlocal enabledelayedexpansion
+    set name=!software[%%i].name!
+    set url=!software[%%i].url!
+    set type=!software[%%i].type!
+
+    echo Downloading !name!...
+    powershell -Command "Invoke-WebRequest -Uri '!url!' -OutFile '%DOWNLOAD_DIR%\!name!.!type!'"
+
+    if "!type!"=="exe" (
+        echo Installing !name!...
+        "%DOWNLOAD_DIR%\!name!.exe" /silent
+    ) else if "!type!"=="msi" (
+        echo Installing !name!...
+        msiexec /i "%DOWNLOAD_DIR%\!name!.msi" /quiet /norestart
+    ) else if "!type!"=="zip" (
+        set "INSTALL_DIR=D:\Program Files\!name!"
+        if exist "!INSTALL_DIR!" (
+            echo Cleaning up previous !name! installation...
+            rmdir /s /q "!INSTALL_DIR!"
+        )
+        mkdir "!INSTALL_DIR!"
+        
+        echo Extracting !name!...
+        powershell -Command "Expand-Archive -Path '%DOWNLOAD_DIR%\!name!.zip' -DestinationPath '%DOWNLOAD_DIR%\!name!'"
+
+        echo Moving !name! files to !INSTALL_DIR!...
+        xcopy /e /i "%DOWNLOAD_DIR%\!name!" "!INSTALL_DIR!"
+    )
+
+    endlocal
+)
+
+:: 清理
+echo Cleanup...
+del /q "%DOWNLOAD_DIR%\*.exe" 2> nul
+del /q "%DOWNLOAD_DIR%\*.msi" 2> nul
+del /q "%DOWNLOAD_DIR%\*.zip" 2> nul
+timeout /t 2 /nobreak > nul
+
+rmdir /s /q "%DOWNLOAD_DIR%" 2> nul
+if exist "%DOWNLOAD_DIR%" (
+    echo Directory not empty, retrying...
+    del /f /q "%DOWNLOAD_DIR%\*" 2> nul
+    rmdir /s /q "%DOWNLOAD_DIR%" 2> nul
+)
+
+echo All software installed successfully!
+pause
